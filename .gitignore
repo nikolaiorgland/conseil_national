@@ -3,7 +3,14 @@ data/abdb-de-all-affairs-50-0.csv
 data/abdb-de-all-affairs-50-0_new.csv
 data/votations_2018.csv
 
+
 milestone1/.ipynb_checkpoints/
 milestone2/.ipynb_checkpoints/
 milestone3/.ipynb_checkpoints/
 milestone4/.ipynb_checkpoints/
+
+Final_Project/.ipynb_checkpoints/
+
+# Pycache
+*.cypthon-36
+__pycache__/
