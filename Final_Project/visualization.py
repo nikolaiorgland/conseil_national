@@ -6,6 +6,8 @@ Created on Wed Jan  2 11:00:22 2019
 """
 import numpy as np
 import pandas as pd
+import networkx as nx
+import community as pylouvain
 
 def get_lap_eigendecomp(adjacency, lap_type='combinatorial', ret_eigval=False):
     """ Returns eigenvectors of graph laplacian that can be used for laplacian eigenmaps"""
@@ -70,4 +72,36 @@ def label_to_numeric(node_index_with_labels, label_name, dictionary, ret_values=
     else:
         return node_index_with_labels_num
     
+def detect_partitions(adjacency, resolution=1.0):
+    """ Detects partitions based on the Louvain method. Also returns network
+    modularity
+    
+    adjacency       Numpy array
+    resolution      float; can be used to tune resolution of Louvain algorithm.
+                    set lower to get more communities
+    
+    returns:
+    partition       dict with structure {node_id1:partition_id, node_id2:partition_id,...}
+    modularity      float. Calculated modularity of network
+    """
+    
+    if not isinstance(adjacency, np.ndarray):
+        raise TypeError("Wrong array format. Adjacency matrix must be numpy.ndarray")
+        
+    graph = nx.from_numpy_array(adjacency)
+    partition = pylouvain.best_partition(graph, resolution=resolution)
+    modularity = pylouvain.modularity(partition, graph)
+    
+    return partition, modularity
+
+def make_signal(n_nodes, dictionary):
+    
+    label = np.zeros(n_nodes)
+    for i in range(n_nodes):
+        label[i] = dictionary[i]
+    
+    return label
+        
+    
+
     

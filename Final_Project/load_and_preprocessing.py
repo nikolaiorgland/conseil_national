@@ -7,17 +7,18 @@ Created on Tue Jan 1 12:13:44 2019
 
 import numpy as np
 import pandas as pd
+from datetime import datetime
 import matplotlib.pyplot as plt
 
 def assign_val_to_vote(data):
     counc_votes = data.copy()
     nbr_votes = counc_votes.shape[0]
     counc_votes.insert(len(counc_votes.columns),'value',np.zeros(nbr_votes))
-    counc_votes.loc[counc_votes.CouncillorYes == '1','value'] = 1
-    counc_votes.loc[counc_votes.CouncillorNo == '1','value'] = 0
-    counc_votes.loc[(counc_votes.CouncillorAbstain == '1') | 
-                        (counc_votes.CouncillorExcused == 1) | 
-                        (counc_votes.CouncillorNotParticipated == 1),'value'] = 0.5
+    counc_votes.loc[counc_votes.CouncillorYes.astype(int) == 1,'value'] = 1
+    counc_votes.loc[counc_votes.CouncillorNo.astype(int) == 1,'value'] = 0
+    counc_votes.loc[(counc_votes.CouncillorAbstain.astype(int) == 1) | 
+                        (counc_votes.CouncillorExcused.astype(int) == 1) | 
+                        (counc_votes.CouncillorNotParticipated.astype(int) == 1),'value'] = 0.5
     
     return counc_votes
 
@@ -37,17 +38,19 @@ def extract_feature_vec(val_votes, councId, complete_feat_idx):
     return feature_vec
 
 
-def load_data_and_filter_members(datapath, filter_method='number_NA', cutoff=10, ret_transf=False):
+def load_data_and_filter_members(datapath, start_date=None, end_date=None, filter_method='number_NA', cutoff=10, ret_transf=False):
     """ Loads a dataset (whose path is given in the datapath argument) for eg. a particular legislature.
     Further, the function filters out councillors based on the amount of NAs present in their feature vector.
     The exact method is chosen in filter_method. The options available are 'number_NA' or 'number_nodes'.
-    datapath:       path to data csv. Example: '../data/abdb-de-all-affairs-50-0_new.csv'
-    filter_method:  Choice of filtering method 
-                    Option 'number_NA': All councillors with more NAs in their feature vector
+    datapath:               path to data csv. Example: '../data/abdb-de-all-affairs-50-0_new.csv'
+    start_date, end date:   Start and end of period from which the votes should be analyzed
+                            Format: dd/mm/yyyy
+    filter_method:          Choice of filtering method 
+                            Option 'number_NA': All councillors with more NAs in their feature vector
                                         than the number specified in cutoff are removed
-                    Option 'number_nodes': The first N councillors with the least amount of NAs are kept, where N = cutoff
-    cutoff:         Integer
-    ret_transf:     Boolean to specify whether the transformed dataframe should be returned or not
+                            Option 'number_nodes': The first N councillors with the least amount of NAs are kept, where N = cutoff
+    cutoff:                 Integer, if 'number_NA', all people with more NA than cutoff are deleted
+    ret_transf:             Boolean to specify whether the transformed dataframe should be returned or not
     returns:
         adjacency 
         node list
@@ -59,6 +62,23 @@ def load_data_and_filter_members(datapath, filter_method='number_NA', cutoff=10,
     if filter_method not in ['number_NA','number_nodes']:
         print("Unknown filter method " + filter_method + " number_NA is used")
         filter_method = 'number_NA'
+    
+    # Start and end date parsing
+    if start_date is not None:
+        try:
+            start_datetime = datetime.strptime(start_date, '%d_%m_%Y')
+        except ValueError:
+            print("Invalid start time format. Must be string with format dd_mm_yyyy")
+    else:
+        start_datetime = datetime.strptime('01/01/2000', '%d/%m/%Y')
+    
+    if end_date is not None:    
+        try:
+            end_datetime = datetime.strptime(end_date, '%d_%m_%Y')
+        except ValueError:
+            print("Invalid end time format. Must be string with format dd_mm_yyyy")
+    else:
+        end_datetime = datetime.strptime('01/01/2019', '%d/%m/%Y')
         
     # Load data from datapath
     data = pd.read_csv(datapath, sep=',',lineterminator='\n', encoding='utf-8',
@@ -67,10 +87,14 @@ def load_data_and_filter_members(datapath, filter_method='number_NA', cutoff=10,
     # Need to keep: 
     keep_columns = ['AffairShortId','AffairTitle','VoteDate','CouncillorId','CouncillorName',
                     'CouncillorYes','CouncillorNo','CouncillorAbstain',
-                    'CouncillorNotParticipated', 'CouncillorExcused','CouncillorPresident']
+                    'CouncillorNotParticipated', 'CouncillorExcused']
     
     data = data[keep_columns]
+    data['VoteDate'] = data['VoteDate'].apply(lambda x: datetime.strptime(x[4:15],
+                                                                            '%b %d %Y'))
     
+    # Filter by date
+    data = data[((data.VoteDate >= start_datetime) & (data.VoteDate <= end_datetime))]
     # Delete all votes concerning "Ordnungsanträge"
     data = data[~((data.AffairShortId == 1) | (data.AffairShortId == 2))]
     # Create list of nodes containing name and Id number of councillor
@@ -164,8 +188,8 @@ def get_adjacency(dataframe):
             distances[i,j] = 1 - dot_product/(np.linalg.norm(a,2)*np.linalg.norm(b,2))
 
     # Weights (gaussian) are assigned to each link based on the distance  
-    kernel_width = distances.mean()
-    weights = np.exp(-distances**2 / kernel_width**2)
+    kernel_width = distances.std()
+    weights = np.exp(-distances**2 / (2*kernel_width**2))
 
     # Set main diagonal to zero (No self-loops)
     np.fill_diagonal(weights,0)

@@ -14,3 +14,5 @@ Final_Project/.ipynb_checkpoints/
 # Pycache
 *.cypthon-36
 __pycache__/
+*.csv
+*.png
