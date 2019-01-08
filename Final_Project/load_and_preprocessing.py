@@ -16,6 +16,7 @@ def assign_val_to_vote(data):
     counc_votes.insert(len(counc_votes.columns),'value',np.zeros(nbr_votes))
     counc_votes.loc[counc_votes.CouncillorYes.astype(int) == 1,'value'] = 1
     counc_votes.loc[counc_votes.CouncillorNo.astype(int) == 1,'value'] = 0
+    counc_votes.loc[counc_votes.CouncillorPresident.astype(int) == 1,'value'] = np.nan
     counc_votes.loc[(counc_votes.CouncillorAbstain.astype(int) == 1) | 
                         (counc_votes.CouncillorExcused.astype(int) == 1) | 
                         (counc_votes.CouncillorNotParticipated.astype(int) == 1),'value'] = 0.5
@@ -84,12 +85,14 @@ def load_data_and_filter_members(datapath, start_date=None, end_date=None, filte
     data = pd.read_csv(datapath, sep=',',lineterminator='\n', encoding='utf-8',
                        engine='c', low_memory=False) 
     
+    
     # Need to keep: 
     keep_columns = ['AffairShortId','AffairTitle','VoteDate','CouncillorId','CouncillorName',
                     'CouncillorYes','CouncillorNo','CouncillorAbstain',
-                    'CouncillorNotParticipated', 'CouncillorExcused']
+                    'CouncillorNotParticipated', 'CouncillorExcused','CouncillorPresident\r']
     
     data = data[keep_columns]
+    data = data.rename(columns={'CouncillorPresident\r':'CouncillorPresident'})
     data['VoteDate'] = data['VoteDate'].apply(lambda x: datetime.strptime(x[4:15],
                                                                             '%b %d %Y'))
     
