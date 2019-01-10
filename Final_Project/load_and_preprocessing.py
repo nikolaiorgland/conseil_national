@@ -38,14 +38,17 @@ def extract_feature_vec(val_votes, councId, complete_feat_idx):
     feature_vec = feature_vec.rename(columns={'value':str(councId)})
     return feature_vec
 
-
-def load_data_and_filter_members(datapath, start_date=None, end_date=None, filter_method='number_NA', cutoff=10, ret_transf=False):
+def load_data_and_filter_members(datapath, start_date=None, end_date=None, filter_method='number_NA', 
+                                 cutoff=10, ret_transf=False,leg=None, year_leg=None, delete_links_below=None):
     """ Loads a dataset (whose path is given in the datapath argument) for eg. a particular legislature.
     Further, the function filters out councillors based on the amount of NAs present in their feature vector.
     The exact method is chosen in filter_method. The options available are 'number_NA' or 'number_nodes'.
     datapath:               path to data csv. Example: '../data/abdb-de-all-affairs-50-0_new.csv'
     start_date, end date:   Start and end of period from which the votes should be analyzed
                             Format: dd/mm/yyyy
+    leg                     Alternatively to using dates, indicate legislature for data filtering
+    year_leg                Choose years of the legislature specified in leg
+                            Options: 1,2,3,4
     filter_method:          Choice of filtering method 
                             Option 'number_NA': All councillors with more NAs in their feature vector
                                         than the number specified in cutoff are removed
@@ -59,6 +62,9 @@ def load_data_and_filter_members(datapath, start_date=None, end_date=None, filte
     # Cast cutoff to integer if necessary
     if not isinstance(cutoff, int):
         cutoff = int(cutoff)
+    if not delete_links_below:
+        if not isinstance(delete_links_below,float):
+            delete_links_below = 0.5
     
     if filter_method not in ['number_NA','number_nodes']:
         print("Unknown filter method " + filter_method + " number_NA is used")
@@ -80,19 +86,31 @@ def load_data_and_filter_members(datapath, start_date=None, end_date=None, filte
             print("Invalid end time format. Must be string with format dd_mm_yyyy")
     else:
         end_datetime = datetime.strptime('01/01/2019', '%d/%m/%Y')
+    
+    if year_leg is not None:
+        year_start=str(2007+(int(leg)-48)*4+year_leg)
+        start_datetime = datetime.strptime('01/01/'+str(year_start), '%d/%m/%Y')
+        end_datetime = datetime.strptime('31/12/'+str(year_start), '%d/%m/%Y')
         
+        
+    
     # Load data from datapath
     data = pd.read_csv(datapath, sep=',',lineterminator='\n', encoding='utf-8',
                        engine='c', low_memory=False) 
     
+    conc_pres_labels = ['CouncillorPresident','CouncillorPresident\r', 'CouncillorPresident\r\r']
     
-    # Need to keep: 
+    for label in conc_pres_labels:
+        if label in data:
+            counc_pres = label
+            break
+    
     keep_columns = ['AffairShortId','AffairTitle','VoteDate','CouncillorId','CouncillorName',
                     'CouncillorYes','CouncillorNo','CouncillorAbstain',
-                    'CouncillorNotParticipated', 'CouncillorExcused','CouncillorPresident\r']
+                    'CouncillorNotParticipated', 'CouncillorExcused',counc_pres]
     
     data = data[keep_columns]
-    data = data.rename(columns={'CouncillorPresident\r':'CouncillorPresident'})
+    data = data.rename(columns={counc_pres:'CouncillorPresident'})
     data['VoteDate'] = data['VoteDate'].apply(lambda x: datetime.strptime(x[4:15],
                                                                             '%b %d %Y'))
     
@@ -167,14 +185,14 @@ def load_data_and_filter_members(datapath, start_date=None, end_date=None, filte
     # Calculate adjacency matrix
     adjacency = get_adjacency(data_transformed)
     
+    if not delete_links_below:
+        adjacency[adjacency <= delete_links_below] = 0
+    
     if ret_transf:
         return data_transformed, adjacency, node_index, nbr_na_per_row
     else:
         return adjacency, node_index, nbr_na_per_row
-    
-    
-    
-    
+        
     
 def get_adjacency(dataframe):
     """ Creates the adjacency matrix from dataframe """
