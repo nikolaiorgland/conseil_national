@@ -244,6 +244,10 @@ def assign_party_to_names(party_membership_list_path, namelist):
     all_members_cn = all_members_cn[['FullName','PartyAbbreviation']].drop_duplicates(subset=['FullName'])
     namelist_with_parties = namelist.join(all_members_cn.set_index('FullName'), on='CouncillorName')
     
+    # Reassign parties if the party has merged with another one
+    replace_these_parties = {'PRD':'PLR', 'GB':'PES'}
+    namelist_with_parties['PartyAbbreviation'] = namelist_with_parties['PartyAbbreviation'].replace(replace_these_parties)
+    
     n_no_party = len(namelist_with_parties) - namelist_with_parties['PartyAbbreviation'].count()
     
     if n_no_party != 0:
