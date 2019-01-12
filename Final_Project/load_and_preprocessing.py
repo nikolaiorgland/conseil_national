@@ -62,7 +62,7 @@ def load_data_and_filter_members(datapath, start_date=None, end_date=None, filte
     # Cast cutoff to integer if necessary
     if not isinstance(cutoff, int):
         cutoff = int(cutoff)
-    if not delete_links_below:
+    if delete_links_below:
         if not isinstance(delete_links_below,float):
             delete_links_below = 0.5
     
@@ -186,7 +186,6 @@ def load_data_and_filter_members(datapath, start_date=None, end_date=None, filte
     adjacency = get_adjacency(data_transformed)
     
     if delete_links_below:
-        print("delete")
         adjacency[adjacency <= delete_links_below] = 0
     
     if ret_transf:
