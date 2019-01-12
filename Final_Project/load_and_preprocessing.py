@@ -185,11 +185,12 @@ def load_data_and_filter_members(datapath, start_date=None, end_date=None, filte
     # Calculate adjacency matrix
     adjacency = get_adjacency(data_transformed)
     
-    if not delete_links_below:
+    if delete_links_below:
+        print("delete")
         adjacency[adjacency <= delete_links_below] = 0
     
     if ret_transf:
-        return data_transformed, adjacency, node_index, nbr_na_per_row
+        return data_transformed, adjacency, node_index, affairid2feature, nbr_na_per_row
     else:
         return adjacency, node_index, nbr_na_per_row
         
