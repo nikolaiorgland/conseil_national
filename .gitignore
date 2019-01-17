@@ -2,12 +2,22 @@
 data/abdb-de-all-affairs-50-0.csv
 data/abdb-de-all-affairs-50-0_new.csv
 data/votations_2018.csv
+data/
 
+Final_Project/adjacencies/
+Final_Project/node_indices/
+Final_Project/summaries/
+Final_Project/X_train.npy
+Final_Project/y_train.npy
 
+/copypasta/
 milestone1/.ipynb_checkpoints/
 milestone2/.ipynb_checkpoints/
 milestone3/.ipynb_checkpoints/
 milestone4/.ipynb_checkpoints/
+milestone2/suppl_func.py
+milestone4/
+
 
 Final_Project/.ipynb_checkpoints/
 Final_Project/lib/

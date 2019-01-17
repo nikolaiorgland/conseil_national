@@ -4,30 +4,58 @@ Created on Mon Jan  7 21:53:27 2019
 
 @author: silus
 """
-
+# Basic imports
 import numpy as np
-from sklearn.decomposition import NMF
 import seaborn as sns
 import matplotlib.pyplot as plt
-import pandas as pd
+import scipy.sparse as sp
 
-def get_covotation_matrix(dataframe):
-    
-    # Number of nodes in the graph
-    n_nodes = dataframe.shape[0]
-    half = int(n_nodes/2)
+# sklearn
+from sklearn import svm
+from sklearn.model_selection import cross_val_score
 
-    # Covotation matrix. Entry at i,j is how many times node i and j voted the 
-    # same thing
-    covotation_matrix = np.zeros((half, n_nodes-half))
+# ConvNN
+from lib import models, graph, coarsening, utils
+
+def fit_svm(X_train, y_train, kernel, hyperparam, k_fold=5):
+    """
+    X_train     Training data (n_samples x d_dimensions)
+    y_train     Labels
+    kernel      String; Kernel used for svm
+    hyperparam  ndarray; values of the regularizer that are used
+    k_fold      K-Fold cross-validation K parameter
+    """
     
-    for i, a in dataframe.iloc[0:half,:].iterrows():
-        for j, b in dataframe.iloc[half:,:].iterrows():
-            covotation_matrix[i,j-half] = np.sum(a == b)
-            
-    return np.log(covotation_matrix)
+    assert len(hyperparam.shape) == 1
+    assert X_train.shape[0] == len(y_train)
     
-def get_data_split_indices(n_samples, k_fold=5, seed=567):
+    if not isinstance(hyperparam, np.ndarray):
+        raise TypeError("Hyperparameters need to be passed as numpy.ndarray")
+    
+    if len(hyperparam) > 100:
+        raise Warning("Large number of hyperparameters detected. This might take a while")
+    
+    if kernel not in ['linear','rbf','polynomial','sigmoid']:
+        raise Warning("Unknown kernel, defaulting to linear")
+        kernel = 'linear'
+    
+    mean_accuracy = []
+    accuracy_variance = []
+    
+    for c in hyperparam:
+        clf = svm.SVC(kernel='linear', C=c)
+        scores = cross_val_score(clf, X_train, y_train, cv=k_fold)
+        mean = scores.mean()
+        stdev = scores.std()
+        variance = stdev**2
+        mean_accuracy.append(mean)
+        accuracy_variance.append(variance)
+        
+        print("Accuracy: %0.2f (+/- %0.2f)" % (mean, stdev * 2))
+    
+    return np.array(mean_accuracy), np.array(accuracy_variance)
+
+def split_test_train_for_cv(n_samples, k_fold=5, seed=567):
     """ Create train and test sets for k-fold cross validation. Returns them as
     a train and test covotation matrix """
     np.random.seed(seed)
@@ -35,69 +63,81 @@ def get_data_split_indices(n_samples, k_fold=5, seed=567):
     index = np.random.permutation(n_samples)
     split_index = [index[k*idx_interval:(k+1)*idx_interval] for k in range(k_fold)]
     return np.array(split_index)
+    
+def cross_validate_convNN(X, y, adjacency, name_param, value_param, k, num_levels=5):
+    
+    split_index = split_test_train_for_cv(X.shape[0], k_fold=k)
+    graphs, perm = coarsening.coarsen(sp.csr_matrix(adjacency.astype(np.float32)), 
+                                      levels=num_levels, self_connections=False)
+    
+    accuracy = []
+    loss = []
+    for param_val in value_param:
+        accuracy_param = []
+        loss_param = []
+        for k_ in range(k):
+            test_samples = split_index[k_]
+            train_samples = split_index[~(np.arange(split_index.shape[0]) == k_)].flatten()
+            
+            X_train = X[train_samples]
+            X_test = X[test_samples]
+            y_train = y[train_samples]
+            y_test = y[test_samples]
+            
+            X_train = coarsening.perm_data(X_train, perm)
+            X_test = coarsening.perm_data(X_test, perm)
+            n_train = X_train.shape[0]
+            
+            L = [graph.laplacian(A, normalized=True) for A in graphs]
+            
+            # Conv NN parameters
+            params = dict()
+            params['dir_name']       = 'demo'
+            params['num_epochs']     = 10
+            params['batch_size']     = 30
+            params['eval_frequency'] = 30
+            
+            # Building blocks.
+            params['filter']         = 'chebyshev5'
+            params['brelu']          = 'b1relu'
+            params['pool']           = 'apool1'
+            
+            # Number of classes.
+            C = y.max() + 1
+            assert C == np.unique(y).size
+            
+            # Architecture.
+            params['F']              = [16, 32]  # Number of graph convolutional filters.
+            params['K']              = [10, 10]  # Polynomial orders.
+            params['p']              = [8, 4]    # Pooling sizes.
+            params['M']              = [256, C]  # Output dimensionality of fully connected layers.
+            
+            # Optimization.
+            params['regularization'] = 4e-5
+            params['dropout']        = 1
+            params['learning_rate']  = 4e-2
+            params['decay_rate']     = 0.9
+            params['momentum']       = 0.8
+            params['decay_steps']    = n_train / params['batch_size']
+            params[name_param]       = [param_val*1, param_val * 2]
+            
+            model = models.cgcnn(L, **params)
+            test_acc, train_loss, t_step = model.fit(X_train, y_train, X_test, y_test)
+            accuracy_param.append([max(test_acc), np.mean(test_acc)])
+            loss_param.append([max(train_loss), np.mean(train_loss)])
+        print(np.array(accuracy_param))
+        pm = np.mean(np.array(accuracy_param), axis=0)
+        pl = np.mean(np.array(loss_param), axis=0)
+        print("IIIII Accuracy: %0.2f (max) %0.2f (mean) Loss: %0.2f (max) %0.2f (mean)" 
+              % (pm[0], pm[1], pl[0], pl[1]))
+        accuracy.append(pm)
+        loss.append(pl)
+    return accuracy, loss
+            
 
-def compute_rmse(X,W,H):
-    dx = (X - W @ H)**2
-    return np.sqrt(dx.mean())
+    
+    
 
-def cross_validation(dataframe, lambdas, num_features, k_fold=5):
-    
-    n_samples = dataframe.shape[1]
-    
-    cv_index = get_data_split_indices(n_samples, k_fold)
-    losses_tr = np.zeros((len(num_features), len(lambdas)))
-    losses_te = np.zeros((len(num_features), len(lambdas)))
-    for idx_nfeat, n_feat in enumerate(num_features):
-        for idx_lambda, lambda_ in enumerate(lambdas):
-            rmse_tr_tmp = []
-            rmse_te_tmp = []
-            for k in range(k_fold):
-                test_columns = cv_index[k]
-                train_columns = cv_index[~(np.arange(cv_index.shape[0]) == k)].flatten()
-                
-                covot_test = get_covotation_matrix(dataframe.iloc[:,test_columns])
-                covot_train = get_covotation_matrix(dataframe.iloc[:,train_columns])
-                
-                print("Matrix factorization with {0} features and lambda = {1}".format(n_feat, lambda_))
-                model = NMF(n_components=n_feat, init='random', alpha=lambda_, l1_ratio=0.0, max_iter=200)
-                W = model.fit_transform(covot_train)
-                H = model.components_
-                print("Finished in {0} iterations".format(model.n_iter_))
-                rmse_tr_tmp.append(compute_rmse(covot_train, W, H))
-                rmse_te_tmp.append(compute_rmse(covot_test, W, H))
-            losses_tr[idx_nfeat, idx_lambda] = np.mean(rmse_tr_tmp)
-            losses_te[idx_nfeat, idx_lambda] = np.mean(rmse_te_tmp)
-    return losses_tr, losses_te
-
-def evaluate_optimal_solution(dataframe, losses_te, lambdas, num_features):
-    covot = get_covotation_matrix(dataframe)
-    l_min = np.argmin(losses_te, axis=1)
-    n_feat_min = np.argmin(l_min)
-    
-    plt.figure()
-    ax = sns.heatmap(losses_te, linewidth=0.6, cmap='RdYlGn')
-    plt.tight_layout()  
-    
-    lambda_opt = lambdas[l_min[n_feat_min]]
-    n_feat_opt = num_features[n_feat_min]
-    print("The smallest loss was acheived with lambda = {0} and k = {1}".format(lambda_opt, n_feat_opt))
-    
-    model = NMF(n_components=n_feat_opt, init='random', alpha=lambda_opt)
-    W = model.fit_transform(covot)
-    H = model.components_
-    return W, H
-
-def visual_comparison(dataframe, W, H):
-    covot = get_covotation_matrix(dataframe)
-    loss = compute_rmse(covot, W, H)
-    print("Loss is {0}".format(loss))
-    plt.figure(figsize=(12,6))
-    plt.subplot(211)
-    ax = sns.heatmap(covot, cmap='RdYlGn')
-    plt.title('Original covotation matrix')
-    plt.subplot(212)
-    ax2 = sns.heatmap(W @ H, cmap='RdYlGn')
-    plt.title('WH factorization')
                 
 
             

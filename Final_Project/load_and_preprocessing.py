@@ -254,6 +254,37 @@ def assign_party_to_names(party_membership_list_path, namelist):
         print("{0} councillors couldn't be associated to a party".format(n_no_party))
     return namelist_with_parties
 
+def save_adjacencies_per_year(leg, years_of_leg, save=False):
+    
+    assert isinstance(save, bool)
+    
+    assert len(leg) == len(years_of_leg)
+    
+    for i, l in enumerate(leg):
+        for year in range(1,years_of_leg[i]+1):
+            adjacency, node_index, sum_na_per_row = load_data_and_filter_members('../data/abdb-de-all-affairs-'+l+'-0.csv',
+                                                                     start_date=None, end_date=None, leg=l, year_leg=year,
+                                                                     filter_method='number_NA',cutoff=10,ret_transf=False)
+            if save:
+                np.save('adjacencies/adjacency_'+l+'_'+str(year)+'.npy',adjacency)
+                node_index.to_csv('node_indices/node_index_'+l+'_'+str(year)+'.csv', sep=',',  index=False, header=True)
+
+def get_adjacencies_per_year(leg, years_of_leg):
+    assert len(leg.shape) == 1
+    assert len(years_of_leg.shape) == 1
+    assert len(leg) == len(years_of_leg)
+    
+    adjacencies = []
+    node_indices = []
+    for i, l in enumerate(leg):
+        for year in range(1,years_of_leg[i]+1):
+            adjacencies.append(np.load('adjacencies/adjacency_'+l+'_'+str(year)+'.npy'))
+            node_indices.append(pd.read_csv('node_indices/node_index_'+l+'_'+str(year)+'.csv', sep=','))
+    
+    return adjacencies, node_indices
+
+def compute_community_loyality(community_labels, year, year_of_leg):
+    
 def make_spy_plot(adjacency):
     plt.spy(adjacency, markersize=0.050000)
     plt.title('Adjacency matrix', pad=15.0)
