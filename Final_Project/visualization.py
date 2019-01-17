@@ -9,6 +9,8 @@ import pandas as pd
 import networkx as nx
 import community as pylouvain
 
+from load_and_preprocessing import load_data_and_filter_members
+
 def get_lap_eigendecomp(adjacency, lap_type='combinatorial', ret_eigval=False):
     """ Returns eigenvectors of graph laplacian that can be used for laplacian eigenmaps"""
     
@@ -101,7 +103,38 @@ def make_signal(n_nodes, dictionary):
         label[i] = dictionary[i]
     
     return label
-        
-    
 
+def visualize_modularity(resolution):
+    # Use load_data_and_filter_members to create adjacency for each year seperately
     
+    legis = ['48','49','50']
+    duration = [4,4,3]
+    evolution_modularity = []
+    
+    for i, act_leg in enumerate(legis):
+        for act_year in range(1,duration[i]+1):
+            adjacency, node_index, sum_na_per_row = load_data_and_filter_members('../data/abdb-de-all-affairs-'+act_leg+'-0.csv',
+                                                                     year_leg=act_year, leg=act_leg,
+                                                                     filter_method='number_NA',cutoff=10,ret_transf=False)
+            partitions, modularity = detect_partitions(adjacency, resolution=resolution)
+    
+            evolution_modularity.append(modularity)
+    
+    # Plot of modularity data
+    
+    from matplotlib import pyplot as plt
+    
+    years = [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018] 
+
+    fig, ax = plt.subplots()
+    ax = plt.axes()      
+
+    plt.plot(years, modularity_data_2)
+    ax.set_title("Evolution of modularity over time",fontsize=14)
+    ax.set_xlabel("Year",fontsize=12)
+    ax.set_ylabel("Modularity",fontsize=12)
+    ax.set_ylim([0,0.4])
+    plt.show()
+    fig.savefig('modularity_evolution.png', dpi=300, bbox_inches = "tight")
+        
+    return evolution_modularity    
