@@ -2,13 +2,18 @@
 data/abdb-de-all-affairs-50-0.csv
 data/abdb-de-all-affairs-50-0_new.csv
 data/votations_2018.csv
-data/
+data/data_conseil_national.zip
+data/abdb-de-all-affairs-48-0.csv
+data/abdb-de-all-affairs-49-0.csv
+data/49leg/
 
 Final_Project/adjacencies/
 Final_Project/node_indices/
 Final_Project/summaries/
 Final_Project/X_train.npy
 Final_Project/y_train.npy
+Final_Project/checkpoints/
+Final_Project/*.csv
 
 /copypasta/
 milestone1/.ipynb_checkpoints/
@@ -27,5 +32,4 @@ Final_Project/untitled.ipynb
 # Pycache
 *.cypthon-36
 __pycache__/
-*.csv
 *.png
