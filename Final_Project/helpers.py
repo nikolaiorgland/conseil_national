@@ -9,8 +9,7 @@ import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 
-from network_analysis import detect_partitions
-from load_and_preprocessing import load_data_and_filter_members, get_adjacencies_per_year
+from load_and_preprocessing import get_adjacencies_per_year, assign_party_to_names
 
 def get_lap_eigendecomp(adjacency, lap_type='combinatorial', ret_eigval=False):
     """ Returns eigenvectors of graph laplacian that can be used for laplacian eigenmaps"""
@@ -45,6 +44,19 @@ def get_lap_eigendecomp(adjacency, lap_type='combinatorial', ret_eigval=False):
     else:
         return eigenvecs
     
+def convert_dframecol_to_dict(df, label_column_name):
+    values = df[label_column_name].values
+    keys = np.arange(len(values))
+    return dict(zip(keys, values))
+
+def make_signal(n_nodes, dictionary):
+    # Initialize as list to accept strings also
+    label = []
+    for i in range(n_nodes):
+        label.append(dictionary[i])
+    
+    return np.array(label)
+    
 def label_to_numeric(node_index_with_labels, label_name, dictionary, ret_values=False):
     """ Converts any label of the nodes such as party or lobbying mandats into
     numerical values that can be plotted according to a dictionary that is passed
@@ -73,69 +85,19 @@ def label_to_numeric(node_index_with_labels, label_name, dictionary, ret_values=
         unique_vals = node_index_with_labels[label_name].drop_duplicates(keep='first').values
         return node_index_with_labels_num, unique_vals
     else:
-        return node_index_with_labels_num
+        return node_index_with_labels_num    
 
-
-def make_signal(n_nodes, dictionary):
-    
-    # Initialize as list to accept strings also
-    label = []
-    for i in range(n_nodes):
-        label.append(dictionary[i])
-    
-    return np.array(label)
-
-def convert_dframecol_to_dict(df, label_column_name):
-    values = df[label_column_name].values
-    keys = np.arange(len(values))
-    return dict(zip(keys, values))
-
-def centralities(adjacency,node_index,cut_off):
-   
-    name_with_party = assign_party_to_names('../data/Ratsmitglieder_1848_FR.csv', node_index)
-    
-    # Cut-off: Eliminate elements from the adjacency matrix below a certain treshold
-    adjacency_mod = adjacency.copy()
-    adjacency_mod[[adjacency_mod < cut_off]] = 0
-    
-    # Creation of networkx graph from adjacency
-    import networkx as nx
-    G=nx.from_numpy_matrix(adjacency_mod)
-    act_nodes = list(G.nodes)
-    
-    closeness_cent = nx.closeness_centrality(G)
-    betweenness_cent = nx.betweenness_centrality(G)
-    name_with_party['Closeness centrality']= name_with_party.index.map(closeness_cent)
-    name_with_party['Betweenness centrality']= name_with_party.index.map(betweenness_cent)
-   
-    return name_with_party
-    
-
-def visualize_modularity(resolution):
+def visualize_modularity(modularity_evolution, years):
     # Use load_data_and_filter_members to create adjacency for each year seperately
-    
-    legis = ['48','49','50']
-    duration = [4,4,3]
-    evolution_modularity = []
-    
-    adjacencies = get_adjacencies_per_year(legis, duration)
-    
-    for adjacency in adjacencies:
-        partitions, modularity = detect_partitions(adjacency, resolution=resolution)
-        evolution_modularity.append(modularity)
-
-    
-    years = [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018]    
 
     fig, ax1 = plt.subplots(figsize=(11, 5))
-    ax.plot(years, evolution_modularity, 'linewidth'=0.5)
-    ax.set_xlabel("Year",fontsize=12)
-    ax.set_ylabel("Modularity",fontsize=12)
-    ax.set_ylim([0,0.4])
+    ax1.plot(years, modularity_evolution, linewidth=0.5)
+    ax1.set_xlabel("Year",fontsize=12)
+    ax1.set_ylabel("Modularity",fontsize=12)
+    ax1.set_ylim([0,0.4])
     plt.show()
     fig.savefig('modularity_evolution.png', dpi=300, bbox_inches = "tight")
         
-    return evolution_modularity   
 
 def visualize_node_loyalty(node_loyalty, padding=10):
     
@@ -166,6 +128,21 @@ def visualize_node_loyalty(node_loyalty, padding=10):
     fig.show()
     fig.savefig('figures/node_loyalty.png', dpi=600, bbox_inches = "tight")
     
-#def visualize_party_isolation(party_loyalty, padding=10):
+def visualize_party_orientation(party_evolution_df, years, party_color_map):
+    party_to_be_plotted = list(party_color_map.keys())
+    fig, ax1 = plt.subplots(figsize=(14, 7))
+    for party in party_to_be_plotted:
+        orientation = []
+        domination = []
+        for values_per_year in party_evolution_df:
+            values_party = values_per_year[party].values
+            orientation.append(values_party[0])
+            domination.append(values_party[1])
+        ax1.plot(orientation, years, c=party_color_map[party])
+    ax1.set_yticks(years)
+    
+#def visualize_community_isolation(communities, community_loyalty, years, party_color_map, padding=10):
+    
+    #for i,comm in enumerate(communities)
     
     
