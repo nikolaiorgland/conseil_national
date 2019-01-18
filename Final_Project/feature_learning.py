@@ -23,9 +23,10 @@ def do_pca(X_train,n_comps=20, plot_expl_var=False):
     pca = PCA(n_components=n_comps)
     X_transf = pca.fit_transform(X_train)
     expl_var_ratio = pca.explained_variance_ratio_
-    fig, ax1 = plt.subplots(figsize=(12, 5))
-    ax1.plot(np.cumsum(expl_var_ratio))
-    fig.show()
+    if plot_expl_var:  
+        fig, ax1 = plt.subplots(figsize=(12, 5))
+        ax1.plot(np.cumsum(expl_var_ratio))
+        fig.show()
     return X_transf
     
     
@@ -79,8 +80,8 @@ def fit_log_regression(X, y, cs, k_fold=5):
     assert X.shape[0] == len(y)
     
     clf = LogisticRegressionCV(cv=k_fold, Cs=cs, random_state=0, class_weight='balanced', multi_class='multinomial').fit(X, y)
-    a = clf.score(X, y)     
-    print("Accuracy: %0.2f" % (a))
+    a = clf.score(X, y)  
+    #print("Accuracy: %0.2f" % (a))
     
     return a
 
@@ -174,21 +175,21 @@ def iGFT(U,x):
 
 def heat_kernel(e, t):
     kernel=np.exp(-t*e)
-    return kernel
+    return kernel.reshape((-1,1))
 
 def inverse_kernel(e, t):
     kernel=1/(1+t*e)
-    return kernel
+    return kernel.reshape((-1,1))
 
 def rectangle_kernel(e, l_min, l_max):
-    kernel=np.zeros(e.size)
+    kernel=np.zeros((len(e),1))
     kernel[(e>l_min)&(e<l_max)]=1
     return kernel
 
 def graph_filter(U,x, kernel,e, **kwargs):
     x_hat=GFT(U,x)
     filtred=kernel(e,**kwargs)*x_hat
-    x_filtered=iGFT(filtred)
+    x_filtered=iGFT(U,filtred)
     return x_filtered
             
 

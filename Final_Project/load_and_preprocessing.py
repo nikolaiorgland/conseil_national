@@ -245,7 +245,7 @@ def assign_party_to_names(party_membership_list_path, namelist):
     namelist_with_parties = namelist.join(all_members_cn.set_index('FullName'), on='CouncillorName')
     
     # Reassign parties if the party has merged with another one
-    replace_these_parties = {'PRD':'PLR', 'GB':'PES'}
+    replace_these_parties = {'PRD':'PLR', 'GB':'PES', 'PLS':'PLR'}
     namelist_with_parties['PartyAbbreviation'] = namelist_with_parties['PartyAbbreviation'].replace(replace_these_parties)
     
     n_no_party = len(namelist_with_parties) - namelist_with_parties['PartyAbbreviation'].count()
@@ -257,30 +257,43 @@ def assign_party_to_names(party_membership_list_path, namelist):
 def save_adjacencies_per_year(leg, years_of_leg, save=False):
     
     assert isinstance(save, bool)
-    
-    assert len(leg) == len(years_of_leg)
+    if years_of_leg:
+        assert len(leg) == len(years_of_leg)
     
     for i, l in enumerate(leg):
-        for year in range(1,years_of_leg[i]+1):
+        if years_of_leg:
+            for year in range(1,years_of_leg[i]+1):
+                adjacency, node_index, sum_na_per_row = load_data_and_filter_members('../data/abdb-de-all-affairs-'+l+'-0.csv',
+                                                                         start_date=None, end_date=None, leg=l, year_leg=year,
+                                                                         filter_method='number_NA',cutoff=10,ret_transf=False)
+                if save:
+                    np.save('adjacencies/adjacency_'+l+'_'+str(year)+'.npy',adjacency)
+                    node_index.to_csv('node_indices/node_index_'+l+'_'+str(year)+'.csv', sep=',',  index=False, header=True)
+        else:
             adjacency, node_index, sum_na_per_row = load_data_and_filter_members('../data/abdb-de-all-affairs-'+l+'-0.csv',
-                                                                     start_date=None, end_date=None, leg=l, year_leg=year,
+                                                                     start_date=None, end_date=None, leg=l, year_leg=None,
                                                                      filter_method='number_NA',cutoff=10,ret_transf=False)
             if save:
-                np.save('adjacencies/adjacency_'+l+'_'+str(year)+'.npy',adjacency)
-                node_index.to_csv('node_indices/node_index_'+l+'_'+str(year)+'.csv', sep=',',  index=False, header=True)
+                np.save('adjacencies/adjacency_'+l+'_all.npy',adjacency)
+                node_index.to_csv('node_indices/node_index_'+l+'_all.csv', sep=',',  index=False, header=True)
 
 def get_adjacencies_per_year(leg, years_of_leg):
     
     assert isinstance(leg, list)
-    assert isinstance(years_of_leg, list)
-    assert len(leg) == len(years_of_leg)
+    if years_of_leg:
+        assert isinstance(years_of_leg, list)
+        assert len(leg) == len(years_of_leg)
     
     adjacencies = []
     node_indices = []
     for i, l in enumerate(leg):
-        for year in range(1,years_of_leg[i]+1):
-            adjacencies.append(np.load('adjacencies/adjacency_'+l+'_'+str(year)+'.npy'))
-            node_indices.append(pd.read_csv('node_indices/node_index_'+l+'_'+str(year)+'.csv', sep=','))
+        if years_of_leg:
+            for year in range(1,years_of_leg[i]+1):
+                adjacencies.append(np.load('adjacencies/adjacency_'+l+'_'+str(year)+'.npy'))
+                node_indices.append(pd.read_csv('node_indices/node_index_'+l+'_'+str(year)+'.csv', sep=','))
+        else:
+            adjacencies.append(np.load('adjacencies/adjacency_'+l+'_all.npy'))
+            node_indices.append(pd.read_csv('node_indices/node_index_'+l+'_all.csv', sep=','))
     
     return adjacencies, node_indices
 

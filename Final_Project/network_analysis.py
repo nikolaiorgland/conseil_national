@@ -33,17 +33,29 @@ def detect_partitions(adjacency, resolution=1.0):
     return partition, modularity
 
 def compute_community_loyalty(community_type, leg, years_of_leg):
+    """ Computes the ratio between average edge weight to nodes outside of community
+    and average edge weights to nodes in the same community. 
+    community_type      'party' for comparison using party association as communities
+                        'modularity_max' for comparison using modularity-maximizing 
+                        partitions.
+    leg                 list of string with legislatures of interest
+    years_of_leg        list of years to be analyzed in the legislatures. Must be same 
+                        length as len(leg) or None to use network based on data of the 
+                        whole legislature."""
+    
     
     if community_type not in ['party','modularity_max']:
         raise TypeError("Not a valid community type")
             
     assert isinstance(leg, list)
-    assert isinstance(years_of_leg, list)
-    assert len(leg) == len(years_of_leg)
+    if years_of_leg:
+        assert isinstance(years_of_leg, list)
+        assert len(leg) == len(years_of_leg)
     
     adjacencies, node_indices = get_adjacencies_per_year(leg, years_of_leg)
     
     ret_comm_present = []
+    ret_comm_size = []
     ret_comm_loyalty = []
     ret_node_loyalty = []
     
@@ -79,15 +91,19 @@ def compute_community_loyalty(community_type, leg, years_of_leg):
         df.insert(2,'community', community_assignments)
         
         ret_comm_present.append(communities_present)
+        ret_comm_size.append(community_size)
         ret_comm_loyalty.append(community_loyalty)
         ret_node_loyalty.append(df)
         
-        years = []
-        for i,l in enumerate(leg):
+    years = []
+    if years_of_leg:
+        for i,l in enumerate(leg):    
             for y in range(1,years_of_leg[i]+1):
                 years.append(str(2007+(int(l)-48)*4+y))
+    else:
+        years = leg
                 
-    return ret_comm_present, ret_comm_loyalty, ret_node_loyalty, years
+    return ret_comm_present, ret_comm_size, ret_comm_loyalty, ret_node_loyalty, years
 
 def centralities(leg,years_of_leg,cut_off):
     
@@ -104,7 +120,6 @@ def centralities(leg,years_of_leg,cut_off):
     
         # Creation of networkx graph from adjacency
         G=nx.from_numpy_matrix(adjacency_mod)
-        act_nodes = list(G.nodes)
     
         closeness_cent = nx.closeness_centrality(G)
         betweenness_cent = nx.betweenness_centrality(G)
@@ -114,18 +129,22 @@ def centralities(leg,years_of_leg,cut_off):
         
         legislatures.append(name_with_party)
         
-        years = []
+    years = []
+    if years_of_leg:
         for i,l in enumerate(leg):
             for y in range(1,years_of_leg[i]+1):
                 years.append(str(2007+(int(l)-48)*4+y))
-        return legislatures, years
+    else:
+        years = leg
+    return legislatures, years
 
 
 def compute_modularity(leg, years_of_leg, resolution=1):
     
     assert isinstance(leg, list)
-    assert isinstance(years_of_leg, list)
-    assert len(leg) == len(years_of_leg)
+    if years_of_leg:
+        assert isinstance(years_of_leg, list)
+        assert len(leg) == len(years_of_leg)
     
     evolution_modularity = []
     
@@ -136,7 +155,10 @@ def compute_modularity(leg, years_of_leg, resolution=1):
         evolution_modularity.append(modularity)
     
     years = []
-    for i,l in enumerate(leg):
-        for y in range(1,years_of_leg[i]+1):
-            years.append(str(2007+(int(l)-48)*4+y))
+    if years_of_leg:
+        for i,l in enumerate(leg):
+            for y in range(1,years_of_leg[i]+1):
+                years.append(str(2007+(int(l)-48)*4+y))
+    else:
+        years = leg
     return evolution_modularity, years
