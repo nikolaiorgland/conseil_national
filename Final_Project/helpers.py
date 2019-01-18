@@ -105,14 +105,15 @@ def visualize_modularity(modularity_evolution, years):
     fig.savefig('figures/modularity_evolution.png', dpi=700, bbox_inches = "tight")
         
 
-def visualize_node_loyalty(node_loyalty, padding=10, ):
+def visualize_node_loyalty(node_loyalty, party_color_map, padding=10, node_list=pd.DataFrame()):
     
     assert isinstance(node_loyalty, pd.DataFrame)
     
     nodes_comm_loyalty = node_loyalty[['loyalty','community']].values
     comm_present, comm_size = np.unique(nodes_comm_loyalty[:,1], return_counts=True)
-    
-    fig, ax1 = plt.subplots(figsize=(15, 5))
+    if not node_list.empty:
+        names = node_list['CouncillorName'].values
+    fig, ax1 = plt.subplots(figsize=(12, 4))
     x_ticks = []
     for i, comm in enumerate(comm_present):
         # Don't plot tiny parties
@@ -121,18 +122,32 @@ def visualize_node_loyalty(node_loyalty, padding=10, ):
         
         (rows,) = np.where(nodes_comm_loyalty[:,1] == comm)
         plot_this = nodes_comm_loyalty[rows,0]
+        sorted_idx = np.argsort(plot_this)
         plot_this.sort()
+        first = rows[sorted_idx[0]]
+        last = rows[sorted_idx[-1]]
         
         x = np.arange(np.sum(comm_size[:i])+(i+1)*padding, np.sum(comm_size[:i])+(i+1)*padding+comm_size[i])
         x_ticks.append([np.sum(comm_size[:i])+(i+1)*padding + comm_size[i]/2, comm])
-        ax1.bar(x, plot_this, width=0.7, linewidth=0)
+        ax1.bar(x, plot_this, width=1, linewidth=0, color=party_color_map[comm])
+        if not node_list.empty:
+            if i==5:
+                ax1.text(np.sum(comm_size[:i])+(i+1)*padding, plot_this[0]+0.8, names[first])
+                ax1.text(np.sum(comm_size[:i])+(i+1)*padding+comm_size[i], plot_this[-1]+1.1, names[last])
+            elif i==3:
+                ax1.text(np.sum(comm_size[:i])+(i+1)*padding, plot_this[0], names[first])
+                ax1.text(np.sum(comm_size[:i])+(i+1)*padding+comm_size[i], plot_this[-1]-0.3, names[last])
+            else:
+                ax1.text(np.sum(comm_size[:i])+(i+1)*padding, plot_this[0], names[first])
+                ax1.text(np.sum(comm_size[:i])+(i+1)*padding+comm_size[i], plot_this[-1], names[last])
      
     x_ticks = np.array(x_ticks)
     ax1.set_ylabel(r'$\frac{\Sigma_{j \subset party} W_{ij}}{\Sigma_{j \subset\not party} W_{ij}}$', fontsize=18)
     ax1.set_xticks(x_ticks[:,0].astype(float))
     ax1.set_xticklabels(x_ticks[:,1], fontsize=14)
+    ax1.grid(True, axis='y')
     fig.show()
-    fig.savefig('figures/node_loyalty.png', dpi=600, bbox_inches = "tight")
+    fig.savefig('figures/node_loyalty.png', dpi=800, bbox_inches = "tight")
     
 def visualize_party_orientation(party_evolution_df, years, party_color_map):
     party_to_be_plotted = list(party_color_map.keys())
