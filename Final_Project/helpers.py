@@ -90,16 +90,22 @@ def label_to_numeric(node_index_with_labels, label_name, dictionary, ret_values=
 def visualize_modularity(modularity_evolution, years):
     # Use load_data_and_filter_members to create adjacency for each year seperately
 
-    fig, ax1 = plt.subplots(figsize=(11, 5))
-    ax1.plot(years, modularity_evolution, linewidth=0.5)
-    ax1.set_xlabel("Year",fontsize=12)
-    ax1.set_ylabel("Modularity",fontsize=12)
-    ax1.set_ylim([0,0.4])
+    fig, ax1 = plt.subplots(figsize=(8, 5))
+    ax1.plot(years, modularity_evolution, linewidth=1.5, color='k')
+    ax1.set_xlabel("Year",fontsize=14)
+    ax1.set_ylabel("Modularity",fontsize=14)
+    ax1.set_ylim([0.2,0.45])
+    ax1.set_yticks([0.2, 0.3, 0.35, 0.4, 0.45])
+    ax1.set_yticklabels(["0", "0.3", "0.35", "0.4","0.45"], fontsize=13)
+    ax1.set_xticks(years[0::2])
+    ax1.set_xticklabels(years[0::2], fontsize=14)
+    ax1.grid(True)
+    
     plt.show()
-    fig.savefig('modularity_evolution.png', dpi=300, bbox_inches = "tight")
+    fig.savefig('figures/modularity_evolution.png', dpi=700, bbox_inches = "tight")
         
 
-def visualize_node_loyalty(node_loyalty, padding=10):
+def visualize_node_loyalty(node_loyalty, padding=10, ):
     
     assert isinstance(node_loyalty, pd.DataFrame)
     
@@ -130,19 +136,69 @@ def visualize_node_loyalty(node_loyalty, padding=10):
     
 def visualize_party_orientation(party_evolution_df, years, party_color_map):
     party_to_be_plotted = list(party_color_map.keys())
-    fig, ax1 = plt.subplots(figsize=(14, 7))
+    fig, ax1 = plt.subplots(figsize=(14, 5))
+    max_val = 0
     for party in party_to_be_plotted:
         orientation = []
         domination = []
+        
         for values_per_year in party_evolution_df:
             values_party = values_per_year[party].values
             orientation.append(values_party[0])
+            if abs(values_party[0]) > max_val:
+                max_val = abs(values_party[0]) 
             domination.append(values_party[1])
-        ax1.plot(orientation, years, c=party_color_map[party])
-    ax1.set_yticks(years)
+        
+        ax1.plot(10/0.12*np.array(orientation), years, c=party_color_map[party])
+        
+    fs = 15
+    ax1.text(-9.5, 5, 'PSS', color=party_color_map['PSS'], fontsize=fs, fontweight='semibold')  
+    ax1.text(-7.5, 5, 'PES', color=party_color_map['PES'], fontsize=fs, fontweight='semibold')
+    ax1.text(-2.5, 5, 'pvl', color=party_color_map['pvl'], fontsize=fs, fontweight='semibold')
+    ax1.text(0.5, 5, 'PDC', color=party_color_map['PDC'], fontsize=fs, fontweight='semibold')
+    ax1.text(2, 5, 'PBD', color=party_color_map['PBD'], fontsize=fs, fontweight='semibold')
+    ax1.text(4, 5, 'PLR', color=party_color_map['PLR'], fontsize=fs, fontweight='semibold')
+    ax1.text(5.5, 5, 'UDC', color=party_color_map['UDC'], fontsize=fs, fontweight='semibold')  
+    ax1.grid(True, axis='x')
+    ax1.set_yticks(years[0::2])
+    ax1.set_yticklabels(years[0::2], fontsize=14)
+    ax1.set_xticks([-10,-5,0,5,10])
+    ax1.set_xticklabels([-10,-5,0,5,10], fontsize=14)
+    ax1.set_xlabel('Avg. Fiedler vector components of members',fontsize=14)
+    fig.savefig('figures/party_orientation.png', dpi=800, bbox_inches='tight')
     
-#def visualize_community_isolation(communities, community_loyalty, years, party_color_map, padding=10):
     
-    #for i,comm in enumerate(communities)
+def visualize_community_isolation(communities, community_size, community_loyalty, years, party_color_map, padding=10):
+    comm_found = set()
+    for c in communities:
+        for p in c:
+            comm_found.add(p)
+    communities = np.array(communities)
+    community_loyalty = np.array(community_loyalty)
+    
+    fig, ax1 = plt.subplots(figsize=(9, 6))
+    for comm in comm_found:
+        plot_comm = []
+        for i, c in enumerate(communities):
+            (idx,) = np.where(c == comm)
+            if len(idx)==0:
+                break
+            plot_comm.append(community_loyalty[i][idx])
+        if len(plot_comm) == len(years):
+            ax1.plot(years, plot_comm, c=party_color_map[comm], linewidth=1.5)
+            ax1.text(len(years)-1, plot_comm[-1], comm, fontsize=12, color=party_color_map[comm])
+    ax1.set_xlabel('Year',fontsize=14)
+    ax1.set_ylabel('Party isolation',fontsize=14)
+    ax1.set_xticks(years[0::2])
+    ax1.set_xticklabels(years[0::2], fontsize=14)
+    ax1.grid(True, axis='y')
+    fig.show()
+    fig.savefig('figures/community_isolation.png',dpi=800, bbox_inches='tight')
+        
+    
+    
+    #fig, ax1 = plt.subplots(figsize=(15, 5))
+    #for i in range(communities.shape[1]):
+        
     
     
