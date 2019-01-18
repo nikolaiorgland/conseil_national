@@ -137,4 +137,27 @@ def visualize_modularity(resolution):
     plt.show()
     fig.savefig('modularity_evolution.png', dpi=300, bbox_inches = "tight")
         
-    return evolution_modularity    
+    return evolution_modularity 
+
+def centralities(adjacency,node_index,cut_off):
+   
+    name_with_party = assign_party_to_names('../data/Ratsmitglieder_1848_FR.csv', node_index)
+    
+    # Cut-off: Eliminate elements from the adjacency matrix below a certain treshold
+    adjacency_mod = adjacency.copy()
+    adjacency_mod[[adjacency_mod < cut_off]] = 0
+    
+    # Creation of networkx graph from adjacency
+    import networkx as nx
+    G=nx.from_numpy_matrix(adjacency_mod)
+    act_nodes = list(G.nodes)
+    
+    closeness_cent = nx.closeness_centrality(G)
+    betweenness_cent = nx.betweenness_centrality(G)
+    name_with_party['Closeness centrality']= name_with_party.index.map(closeness_cent)
+    name_with_party['Betweenness centrality']= name_with_party.index.map(betweenness_cent)
+   
+    return name_with_party
+    
+    
+   
