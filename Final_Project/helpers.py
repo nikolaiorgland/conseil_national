@@ -7,9 +7,10 @@ Created on Wed Jan  2 11:00:22 2019
 import numpy as np
 import pandas as pd
 import networkx as nx
-import community as pylouvain
+import matplotlib.pyplot as plt
 
-from load_and_preprocessing import load_data_and_filter_members
+from network_analysis import detect_partitions
+from load_and_preprocessing import load_data_and_filter_members, get_adjacencies_per_year
 
 def get_lap_eigendecomp(adjacency, lap_type='combinatorial', ret_eigval=False):
     """ Returns eigenvectors of graph laplacian that can be used for laplacian eigenmaps"""
@@ -73,36 +74,21 @@ def label_to_numeric(node_index_with_labels, label_name, dictionary, ret_values=
         return node_index_with_labels_num, unique_vals
     else:
         return node_index_with_labels_num
-    
-def detect_partitions(adjacency, resolution=1.0):
-    """ Detects partitions based on the Louvain method. Also returns network
-    modularity
-    
-    adjacency       Numpy array
-    resolution      float; can be used to tune resolution of Louvain algorithm.
-                    set lower to get more communities
-    
-    returns:
-    partition       dict with structure {node_id1:partition_id, node_id2:partition_id,...}
-    modularity      float. Calculated modularity of network
-    """
-    
-    if not isinstance(adjacency, np.ndarray):
-        raise TypeError("Wrong array format. Adjacency matrix must be numpy.ndarray")
-        
-    graph = nx.from_numpy_array(adjacency)
-    partition = pylouvain.best_partition(graph, resolution=resolution)
-    modularity = pylouvain.modularity(partition, graph)
-    
-    return partition, modularity
+
 
 def make_signal(n_nodes, dictionary):
     
-    label = np.zeros(n_nodes)
+    # Initialize as list to accept strings also
+    label = []
     for i in range(n_nodes):
-        label[i] = dictionary[i]
+        label.append(dictionary[i])
     
-    return label
+    return np.array(label)
+
+def convert_dframecol_to_dict(df, label_column_name):
+    values = df[label_column_name].values
+    keys = np.arange(len(values))
+    return dict(zip(keys, values))
 
 def visualize_modularity(resolution):
     # Use load_data_and_filter_members to create adjacency for each year seperately
@@ -111,30 +97,54 @@ def visualize_modularity(resolution):
     duration = [4,4,3]
     evolution_modularity = []
     
-    for i, act_leg in enumerate(legis):
-        for act_year in range(1,duration[i]+1):
-            adjacency, node_index, sum_na_per_row = load_data_and_filter_members('../data/abdb-de-all-affairs-'+act_leg+'-0.csv',
-                                                                     year_leg=act_year, leg=act_leg,
-                                                                     filter_method='number_NA',cutoff=10,ret_transf=False)
-            partitions, modularity = detect_partitions(adjacency, resolution=resolution)
+    adjacencies = get_adjacencies_per_year(legis, duration)
     
-            evolution_modularity.append(modularity)
-    
-    # Plot of modularity data
-    
-    from matplotlib import pyplot as plt
-    
-    years = [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018] 
+    for adjacency in adjacencies:
+        partitions, modularity = detect_partitions(adjacency, resolution=resolution)
+        evolution_modularity.append(modularity)
 
-    fig, ax = plt.subplots()
-    ax = plt.axes()      
+    
+    years = [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018]    
 
-    plt.plot(years, modularity_data_2)
-    ax.set_title("Evolution of modularity over time",fontsize=14)
+    fig, ax1 = plt.subplots(figsize=(11, 5))
+    ax.plot(years, evolution_modularity, 'linewidth'=0.5)
     ax.set_xlabel("Year",fontsize=12)
     ax.set_ylabel("Modularity",fontsize=12)
     ax.set_ylim([0,0.4])
     plt.show()
     fig.savefig('modularity_evolution.png', dpi=300, bbox_inches = "tight")
         
-    return evolution_modularity    
+    return evolution_modularity   
+
+def visualize_node_loyalty(node_loyalty, padding=10):
+    
+    assert isinstance(node_loyalty, pd.DataFrame)
+    
+    nodes_comm_loyalty = node_loyalty[['loyalty','community']].values
+    comm_present, comm_size = np.unique(nodes_comm_loyalty[:,1], return_counts=True)
+    
+    fig, ax1 = plt.subplots(figsize=(15, 5))
+    x_ticks = []
+    for i, comm in enumerate(comm_present):
+        # Don't plot tiny parties
+        if comm_size[i] < 5:
+            continue
+        
+        (rows,) = np.where(nodes_comm_loyalty[:,1] == comm)
+        plot_this = nodes_comm_loyalty[rows,0]
+        plot_this.sort()
+        
+        x = np.arange(np.sum(comm_size[:i])+(i+1)*padding, np.sum(comm_size[:i])+(i+1)*padding+comm_size[i])
+        x_ticks.append([np.sum(comm_size[:i])+(i+1)*padding + comm_size[i]/2, comm])
+        ax1.bar(x, plot_this, width=0.7, linewidth=0)
+     
+    x_ticks = np.array(x_ticks)
+    ax1.set_ylabel(r'$\frac{\Sigma_{j \subset party} W_{ij}}{\Sigma_{j \subset\not party} W_{ij}}$', fontsize=18)
+    ax1.set_xticks(x_ticks[:,0].astype(float))
+    ax1.set_xticklabels(x_ticks[:,1], fontsize=14)
+    fig.show()
+    fig.savefig('figures/node_loyalty.png', dpi=600, bbox_inches = "tight")
+    
+#def visualize_party_isolation(party_loyalty, padding=10):
+    
+    

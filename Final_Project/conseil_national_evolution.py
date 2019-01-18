@@ -8,7 +8,7 @@ Created on Tue Jan 9 12:13:44 2019
 import numpy as np
 import pandas as pd
 from load_and_preprocessing import load_data_and_filter_members, assign_party_to_names
-from visualization import get_lap_eigendecomp
+from helpers import get_lap_eigendecomp
 # This function extracts the entries for a specific councillor from the full table that is sorted by date
 
 def create_evolution_features(time_span,party_map):
