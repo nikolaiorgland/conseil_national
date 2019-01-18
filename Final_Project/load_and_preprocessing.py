@@ -270,8 +270,9 @@ def save_adjacencies_per_year(leg, years_of_leg, save=False):
                 node_index.to_csv('node_indices/node_index_'+l+'_'+str(year)+'.csv', sep=',',  index=False, header=True)
 
 def get_adjacencies_per_year(leg, years_of_leg):
-    assert len(leg.shape) == 1
-    assert len(years_of_leg.shape) == 1
+    
+    assert isinstance(leg, list)
+    assert isinstance(years_of_leg, list)
     assert len(leg) == len(years_of_leg)
     
     adjacencies = []
@@ -283,8 +284,6 @@ def get_adjacencies_per_year(leg, years_of_leg):
     
     return adjacencies, node_indices
 
-def compute_community_loyality(community_labels, year, year_of_leg):
-    
 def make_spy_plot(adjacency):
     plt.spy(adjacency, markersize=0.050000)
     plt.title('Adjacency matrix', pad=15.0)

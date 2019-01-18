@@ -12,11 +12,23 @@ import scipy.sparse as sp
 
 # sklearn
 from sklearn import svm
+from sklearn.linear_model import LogisticRegressionCV
+from sklearn.decomposition import PCA
 from sklearn.model_selection import cross_val_score
 
 # ConvNN
 from lib import models, graph, coarsening, utils
 
+def do_pca(X_train,n_comps=20, plot_expl_var=False):
+    pca = PCA(n_components=n_comps)
+    X_transf = pca.fit_transform(X_train)
+    expl_var_ratio = pca.explained_variance_ratio_
+    fig, ax1 = plt.subplots(figsize=(12, 5))
+    ax1.plot(np.cumsum(expl_var_ratio))
+    fig.show()
+    return X_transf
+    
+    
 def fit_svm(X_train, y_train, kernel, hyperparam, k_fold=5):
     """
     X_train     Training data (n_samples x d_dimensions)
@@ -55,10 +67,28 @@ def fit_svm(X_train, y_train, kernel, hyperparam, k_fold=5):
     
     return np.array(mean_accuracy), np.array(accuracy_variance)
 
+def fit_log_regression(X, y, cs, k_fold=5):
+    """
+    X_train     Training data (n_samples x d_dimensions)
+    y_train     Labels
+    kernel      String; Kernel used for svm
+    hyperparam  ndarray; values of the regularizer that are used
+    k_fold      K-Fold cross-validation K parameter
+    """
+        
+    assert X.shape[0] == len(y)
+    
+    clf = LogisticRegressionCV(cv=k_fold, Cs=cs, random_state=0, class_weight='balanced', multi_class='multinomial').fit(X, y)
+    a = clf.score(X, y)     
+    print("Accuracy: %0.2f" % (a))
+    
+    return a
+
+
 def split_test_train_for_cv(n_samples, k_fold=5, seed=567):
     """ Create train and test sets for k-fold cross validation. Returns them as
     a train and test covotation matrix """
-    np.random.seed(seed)
+    #np.random.seed(seed)
     idx_interval = int(n_samples/k_fold)
     index = np.random.permutation(n_samples)
     split_index = [index[k*idx_interval:(k+1)*idx_interval] for k in range(k_fold)]
@@ -93,7 +123,7 @@ def cross_validate_convNN(X, y, adjacency, name_param, value_param, k, num_level
             # Conv NN parameters
             params = dict()
             params['dir_name']       = 'demo'
-            params['num_epochs']     = 10
+            params['num_epochs']     = 30
             params['batch_size']     = 30
             params['eval_frequency'] = 30
             
@@ -107,19 +137,19 @@ def cross_validate_convNN(X, y, adjacency, name_param, value_param, k, num_level
             assert C == np.unique(y).size
             
             # Architecture.
-            params['F']              = [16, 32]  # Number of graph convolutional filters.
-            params['K']              = [10, 10]  # Polynomial orders.
-            params['p']              = [8, 4]    # Pooling sizes.
+            params['F']              = [4, 8]  # Number of graph convolutional filters.
+            params['K']              = [3, 3]  # Polynomial orders.
+            params['p']              = [2, 8]    # Pooling sizes.
             params['M']              = [256, C]  # Output dimensionality of fully connected layers.
             
             # Optimization.
             params['regularization'] = 4e-5
             params['dropout']        = 1
-            params['learning_rate']  = 4e-2
+            params['learning_rate']  = 3e-3
             params['decay_rate']     = 0.9
             params['momentum']       = 0.8
             params['decay_steps']    = n_train / params['batch_size']
-            params[name_param]       = [param_val*1, param_val * 2]
+            params[name_param]       = param_val
             
             model = models.cgcnn(L, **params)
             test_acc, train_loss, t_step = model.fit(X_train, y_train, X_test, y_test)
