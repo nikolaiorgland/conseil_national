@@ -6,7 +6,6 @@ Created on Thu Jan 17 17:15:35 2019
 """
 import numpy as np
 import networkx as nx
-import pandas as pd
 import community as pylouvain
 from load_and_preprocessing import get_adjacencies_per_year, assign_party_to_names
 from helpers import make_signal, convert_dframecol_to_dict
@@ -82,4 +81,62 @@ def compute_community_loyalty(community_type, leg, years_of_leg):
         ret_comm_present.append(communities_present)
         ret_comm_loyalty.append(community_loyalty)
         ret_node_loyalty.append(df)
-    return ret_comm_present, ret_comm_loyalty, ret_node_loyalty
+        
+        years = []
+        for i,l in enumerate(leg):
+            for y in range(1,years_of_leg[i]+1):
+                years.append(str(2007+(int(l)-48)*4+y))
+                
+    return ret_comm_present, ret_comm_loyalty, ret_node_loyalty, years
+
+def centralities(leg,years_of_leg,cut_off):
+    
+    legislatures = []
+    adjacencies, node_indices = get_adjacencies_per_year(leg, years_of_leg)
+    
+    for adjacency, node_list in zip(adjacencies, node_indices):
+   
+        name_with_party = assign_party_to_names('../data/Ratsmitglieder_1848_FR.csv', node_list)
+    
+        # Cut-off: Eliminate elements from the adjacency matrix below a certain treshold
+        adjacency_mod = adjacency.copy()
+        adjacency_mod[[adjacency_mod < cut_off]] = 0
+    
+        # Creation of networkx graph from adjacency
+        G=nx.from_numpy_matrix(adjacency_mod)
+        act_nodes = list(G.nodes)
+    
+        closeness_cent = nx.closeness_centrality(G)
+        betweenness_cent = nx.betweenness_centrality(G)
+        name_with_party = name_with_party.drop(columns='Counc_Id')
+        name_with_party.insert(2,'Closeness centrality', list(closeness_cent.values()))
+        name_with_party.insert(3, 'Betweenness centrality',list(betweenness_cent.values()))
+        
+        legislatures.append(name_with_party)
+        
+        years = []
+        for i,l in enumerate(leg):
+            for y in range(1,years_of_leg[i]+1):
+                years.append(str(2007+(int(l)-48)*4+y))
+        return legislatures, years
+
+
+def compute_modularity(leg, years_of_leg, resolution=1):
+    
+    assert isinstance(leg, list)
+    assert isinstance(years_of_leg, list)
+    assert len(leg) == len(years_of_leg)
+    
+    evolution_modularity = []
+    
+    adjacencies, node_indices = get_adjacencies_per_year(leg, years_of_leg)
+    
+    for adjacency in adjacencies:
+        partitions, modularity = detect_partitions(adjacency, resolution=resolution)
+        evolution_modularity.append(modularity)
+    
+    years = []
+    for i,l in enumerate(leg):
+        for y in range(1,years_of_leg[i]+1):
+            years.append(str(2007+(int(l)-48)*4+y))
+    return evolution_modularity, years

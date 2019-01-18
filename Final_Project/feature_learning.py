@@ -163,6 +163,33 @@ def cross_validate_convNN(X, y, adjacency, name_param, value_param, k, num_level
         accuracy.append(pm)
         loss.append(pl)
     return accuracy, loss
+
+def GFT(U,x):
+    s=U.T@x
+    return s
+
+def iGFT(U,x):
+    s_i=U@x
+    return s_i
+
+def heat_kernel(e, t):
+    kernel=np.exp(-t*e)
+    return kernel
+
+def inverse_kernel(e, t):
+    kernel=1/(1+t*e)
+    return kernel
+
+def rectangle_kernel(e, l_min, l_max):
+    kernel=np.zeros(e.size)
+    kernel[(e>l_min)&(e<l_max)]=1
+    return kernel
+
+def graph_filter(U,x, kernel,e, **kwargs):
+    x_hat=GFT(U,x)
+    filtred=kernel(e,**kwargs)*x_hat
+    x_filtered=iGFT(filtred)
+    return x_filtered
             
 
     
